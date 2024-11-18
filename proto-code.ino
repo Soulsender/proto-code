@@ -69,10 +69,11 @@ char Angry1L[] =    {8, 8, B00000000, B10000000, B11100000, B11111000, B11111100
 char Spooked1L[] =  {8, 8, B00000001, B00000111, B00000111, B00001111, B00001111, B00000111, B00000111, B00000001};
 char Spooked2L[] =  {8, 8, B10000000, B11100000, B11100000, B11110000, B11110000, B11100000, B11100000, B10000000};
 
-const int interruptPin = 2;
-const int interruptPin2 = 3;
-volatile long debounceTime = 0;
-volatile long currentTime = 0;
+// same on both sides
+char Sad1[] = {8, 8, B00000001, B00000111, B00001110, B00011100, B00111000, B01110000, B11100000, B11000000};
+char Sad2[] = {8, 8, B10000000, B11100000, B01110000, B00111000, B00011100, B00001110, B00000111, B00000011};
+char Blush1[] = {8, 8, B00000000, B00000001, B00000011, B00000110, B00001100, B00011000, B00010000, B00000000};
+char Blush2[] = {8, 8, B10000000, B11000000, B01100000, B00110000, B00011000, B00001100, B00000100, B00000000};
 
 int redPin = 5; //These pins are used for the expression indicating rgb LED.
 int greenPin = 11;
@@ -98,10 +99,86 @@ int state = 0;
 int state2;
 int stateSerial;
 
+int rfRxPin = 13;
+
+
 MaxMatrix m(DIN, CS, CLK, maxInUse);
 
-void exHappy() {
-  m.writeSprite(88, 0, icon01L);          //Icons for the mouth and nose are being turned on here
+// on arduino bootup
+void setup() {
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+
+  Serial.begin(9600);
+  randomSeed(analogRead(0));
+  m.init();
+  m.setIntensity(0);   // You can change the brightness of the matrices within a range of 0-15
+  m.clear();
+}
+
+
+void loop() {
+  Serial.print(digitalRead(rfRxPin));
+
+  if (digitalRead(rfRxPin) == 0) {
+    state++;
+    Serial.print("Expression Changed\n");
+    delay(1000);
+  }
+
+  // set default mouth and nose
+  noseMouth();
+  
+  // default happy expression
+  if (state == 0) {
+    eyeBlink();
+    m.writeSprite(104, 0, Eye01L);
+    m.writeSprite(96, 0, Eye02L);
+    m.writeSprite(8, 0, Eye02);
+    m.writeSprite(0, 0, Eye01);
+    setColor(0, 32, 0);               //Makes the colour of the rgb LED green
+    //You can enter any number between 0 and 255 to make any colour combination.
+    //255,255,255 for example would show a white colour and a lower number would dimm the LED.
+    //(the 16,8 million colours were not a lie :P)
+  } else if (state == 1) {
+    eyeBlink();
+    m.writeSprite(104, 0, Angry1L);
+    m.writeSprite(96, 0, Angry2L);
+    m.writeSprite(8, 0, Angry1);
+    m.writeSprite(0, 0, Angry2);
+    setColor(16, 0, 0);               //Makes the colour of the LED red
+    mouthGlitch();
+  } else if (state == 2) {
+    m.writeSprite(104, 0, Blush2);
+    m.writeSprite(96, 0, Blush1);
+    m.writeSprite(8, 0, Blush2);
+    m.writeSprite(0, 0, Blush1);
+    setColor(16, 0, 0);
+  }
+  //  else if (state == 3) {
+  //   m.writeSprite(104, 0, Sad1);
+  //   m.writeSprite(96, 0, Sad2);
+  //   m.writeSprite(8, 0, Sad1);
+  //   m.writeSprite(0, 0, Sad2);
+  //   setColor(16, 0, 0);
+  // } else if (state == 4) {
+  //   eyeBlink();
+  //   m.writeSprite(104, 0, Spooked2L);
+  //   m.writeSprite(96, 0, Spooked1L);
+  //   m.writeSprite(8, 0, Spooked2);
+  //   m.writeSprite(0, 0, Spooked1);
+  //   setColor(0, 0, 8);              //Makes the colour of the LED blue
+  // } 
+  else {
+    state = 0;
+  }
+}
+
+// default mouth and nose
+// used on all expressions
+void noseMouth() {
+  m.writeSprite(88, 0, icon01L);
   m.writeSprite(80, 0, icon02L);
   m.writeSprite(72, 0, icon03L);
   m.writeSprite(64, 0, icon04L);
@@ -113,54 +190,10 @@ void exHappy() {
   m.writeSprite(16, 0, icon01);
 }
 
-void setup() {                        //starting up sequence
-  pinMode(redPin, OUTPUT);
-  pinMode(greenPin, OUTPUT);
-  pinMode(bluePin, OUTPUT);
-
-  Serial.begin(9600);
-  randomSeed(analogRead(0));
-  m.init();
-  m.setIntensity(0);   // You can change the brightness of the matrices within a range of 0-15
-  m.clear();
-  pinMode(interruptPin, OUTPUT);
-  digitalWrite(2, HIGH);
-  attachInterrupt(digitalPinToInterrupt(2), ISR_button, FALLING);
-
-#ifndef visorSensor
-  state2 = 1;
-#endif
-
-#ifdef visorSensor
-  pinMode(interruptPin2, INPUT);
-  attachInterrupt(digitalPinToInterrupt(3), hallSensor, CHANGE);
-  if (digitalRead(3) == 0) {
-    state2 = 1;
-  }
-#endif
-}
-
-
-void loop() {                        //This is where the program loop starts.
-  Serial.println(state2);
-  if (state2 == 1) {                 //The Hall sensor Detects wheter the visor is attached, only then will the leds turn on
-
-    if (Serial.available() > 0) {    //Used for input through bluetooth or serial monitor instead of button.
-      stateSerial = Serial.read();   //Mainly for testing purposes
-    }
-    if (stateSerial == '0') {
-      state = 0;
-    }
-    if (stateSerial == '1') {
-      state = 1;
-    }
-    if (stateSerial == '2') {
-      state = 2;
-    }
-
-    exHappy();
-
-    if (counter2 > 17) {                    //The blinking animation begins here
+// blink animation
+// used on all expressions
+void eyeBlink() {
+   if (counter2 > 17) {
       for (int i = 0; i < 5; i++) {
         column1L = column1L - 1;
         column2L = column2L - 1;
@@ -192,108 +225,49 @@ void loop() {                        //This is where the program loop starts.
       counter2 = 0;
     }
     counter2++;
-    Serial.print(("Expression #"));
-    Serial.println(state);
+}
 
-    switch (state) {                      //First button press: Happy expression
-      case 0:
-        m.writeSprite(104, 0, Eye01L);
-        m.writeSprite(96, 0, Eye02L);
-        m.writeSprite(8, 0, Eye02);
-        m.writeSprite(0, 0, Eye01);
-        setColor(0, 32, 0);               //Makes the colour of the rgb LED green
-        //You can enter any number between 0 and 255 to make any colour combination.
-        //255,255,255 for example would show a white colour and a lower number would dimm the LED.
-        //(the 16,8 million colours were not a lie :P)
-        break;
+void mouthGlitch() {
+  counter++;
 
-      case 1:                             //Second button press: Surprised
-        m.writeSprite(104, 0, Spooked1L);
-        m.writeSprite(96, 0, Spooked2L);
-        m.writeSprite(8, 0, Spooked1);
-        m.writeSprite(0, 0, Spooked2);
-        setColor(0, 0, 8);              //Makes the colour of the LED blue
-        break;
-
-      case 2:                             //Third button press: Angry expression
-        m.writeSprite(104, 0, Angry2L);
-        m.writeSprite(96, 0, Angry1L);
-        m.writeSprite(8, 0, Angry2);
-        m.writeSprite(0, 0, Angry1);
-        setColor(16, 0, 0);               //Makes the colour of the LED red
-        counter++;
-
-        if (counter == 16) {
-          m.writeSprite(64, 0, Glitch044L);
-          m.writeSprite(72, 0, Glitch033L);
-          m.writeSprite(80, 0, Glitch022L);
-          m.writeSprite(88, 0, Glitch011L);
-          m.writeSprite(16, 0, Glitch011);
-          m.writeSprite(24, 0, Glitch022);
-          m.writeSprite(32, 0, Glitch033);
-          m.writeSprite(40, 0, Glitch044);
-          delay(75);
-          counter++;
-        }
-        if ((counter >= 17) && (counter < 18)) {
-          m.writeSprite(88, 0, icon01L);
-          m.writeSprite(80, 0, icon02L);
-          m.writeSprite(72, 0, icon03L);
-          m.writeSprite(64, 0, icon04L);
-          m.writeSprite(40, 0, icon04);
-          m.writeSprite(32, 0, icon03);
-          m.writeSprite(24, 0, icon02);
-          m.writeSprite(16, 0, icon01);
-          delay(200);
-          counter++;
-        }
-        if (counter >= 18) {
-          m.writeSprite(64, 0, Glitch04L);
-          m.writeSprite(72, 0, Glitch03L);
-          m.writeSprite(80, 0, Glitch02L);
-          m.writeSprite(88, 0, Glitch01L);
-          m.writeSprite(16, 0, Glitch01);
-          m.writeSprite(24, 0, Glitch02);
-          m.writeSprite(32, 0, Glitch03);
-          m.writeSprite(40, 0, Glitch04);
-          delay(75);
-          counter = 0;
-        }
-        break;
-    }
+  if (counter == 16) {
+    m.writeSprite(64, 0, Glitch044L);
+    m.writeSprite(72, 0, Glitch033L);
+    m.writeSprite(80, 0, Glitch022L);
+    m.writeSprite(88, 0, Glitch011L);
+    m.writeSprite(16, 0, Glitch011);
+    m.writeSprite(24, 0, Glitch022);
+    m.writeSprite(32, 0, Glitch033);
+    m.writeSprite(40, 0, Glitch044);
+    delay(75);
+    counter++;
   }
-  else {
-    m.clear();
+  if ((counter >= 17) && (counter < 18)) {
+    m.writeSprite(88, 0, icon01L);
+    m.writeSprite(80, 0, icon02L);
+    m.writeSprite(72, 0, icon03L);
+    m.writeSprite(64, 0, icon04L);
+    m.writeSprite(40, 0, icon04);
+    m.writeSprite(32, 0, icon03);
+    m.writeSprite(24, 0, icon02);
+    m.writeSprite(16, 0, icon01);
+    delay(200);
+    counter++;
+  }
+  if (counter >= 18) {
+    m.writeSprite(64, 0, Glitch04L);
+    m.writeSprite(72, 0, Glitch03L);
+    m.writeSprite(80, 0, Glitch02L);
+    m.writeSprite(88, 0, Glitch01L);
+    m.writeSprite(16, 0, Glitch01);
+    m.writeSprite(24, 0, Glitch02);
+    m.writeSprite(32, 0, Glitch03);
+    m.writeSprite(40, 0, Glitch04);
+    delay(75);
+    counter = 0;
   }
 }
 
-
-
-void ISR_button() {                               //Stuff you shouldn't touch :P
-  currentTime = millis();
-  if ((currentTime - debounceTime) > 250) {
-    if (state < 2) {
-      state++;
-    }
-    else {
-      state = 0;
-    }
-  }
-  debounceTime = currentTime;
-}
-
-void hallSensor() {                              //Stuff you shouldn't touch :P
-  currentTime = millis();
-  if ((currentTime - debounceTime) > 25) {
-    if (digitalRead(3) == 0) {
-      state2 = 1;
-    }
-    else {
-      state2 = 0;
-    }
-  }
-  debounceTime = currentTime;
-}
 
 void setColor(int redValue, int greenValue, int blueValue) {
   analogWrite(redPin, redValue);
