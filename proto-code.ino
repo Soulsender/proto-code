@@ -99,8 +99,11 @@ int state = 0;
 int state2;
 int stateSerial;
 
-int rfRxPin = 13;
-
+const int rfRxPin = 13;
+const int thresholdCount = 5;  // Number of LOW signals to detect
+const unsigned long timeout = 5000; // Time window in milliseconds (3 seconds)
+unsigned long startTime = 0;   // To track the time window
+int lowSignalCount = 0;        // Count of detected LOW signals
 
 MaxMatrix m(DIN, CS, CLK, maxInUse);
 
@@ -119,13 +122,7 @@ void setup() {
 
 
 void loop() {
-  Serial.print(digitalRead(rfRxPin));
-
-  if (digitalRead(rfRxPin) == 0) {
-    state++;
-    Serial.print("Expression Changed\n");
-    delay(1000);
-  }
+  detectRfRx();
 
   // set default mouth and nose
   noseMouth();
@@ -172,6 +169,36 @@ void loop() {
   // } 
   else {
     state = 0;
+  }
+}
+
+void detectRfRx() {
+  // If the signal is LOW
+  if (digitalRead(rfRxPin) == 0) {
+    if (lowSignalCount == 0) {
+      // Start the timing window
+      startTime = millis();
+    }
+    
+    lowSignalCount++;
+    Serial.println("LOW signal detected");
+    
+    // If the count reaches the threshold within the time window
+    if (lowSignalCount >= thresholdCount) {
+      if (millis() - startTime <= timeout) {
+        state++;
+        // Reset the count and timing window
+        lowSignalCount = 0;
+      } else {
+        // Reset if time window is exceeded
+        lowSignalCount = 0;
+      }
+    }
+  }
+
+  // Reset the count if the time window is exceeded
+  if (millis() - startTime > timeout && lowSignalCount > 0) {
+    lowSignalCount = 0;
   }
 }
 
