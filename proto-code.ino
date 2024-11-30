@@ -130,28 +130,24 @@ void loop() {
   // default happy expression
   if (state == 0) {
     eyeBlink();
-    m.writeSprite(104, 0, Eye01L);
-    m.writeSprite(96, 0, Eye02L);
-    m.writeSprite(8, 0, Eye02);
-    m.writeSprite(0, 0, Eye01);
-    setColor(0, 32, 0);               //Makes the colour of the rgb LED green
-    //You can enter any number between 0 and 255 to make any colour combination.
-    //255,255,255 for example would show a white colour and a lower number would dimm the LED.
-    //(the 16,8 million colours were not a lie :P)
-  } else if (state == 1) {
-    eyeBlink();
+    mouthGlitch();
     m.writeSprite(104, 0, Angry1L);
     m.writeSprite(96, 0, Angry2L);
     m.writeSprite(8, 0, Angry1);
     m.writeSprite(0, 0, Angry2);
-    setColor(16, 0, 0);               //Makes the colour of the LED red
+  } else if (state == 1) {
     mouthGlitch();
-  } else if (state == 2) {
     m.writeSprite(104, 0, Blush2);
     m.writeSprite(96, 0, Blush1);
     m.writeSprite(8, 0, Blush2);
     m.writeSprite(0, 0, Blush1);
-    setColor(16, 0, 0);
+  } else if (state == 2) {
+    eyeBlink();
+    mouthGlitch();
+    m.writeSprite(104, 0, Eye01L);
+    m.writeSprite(96, 0, Eye02L);
+    m.writeSprite(8, 0, Eye02);
+    m.writeSprite(0, 0, Eye01);
   }
   //  else if (state == 3) {
   //   m.writeSprite(104, 0, Sad1);
